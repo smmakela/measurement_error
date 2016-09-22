@@ -1,0 +1,228 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{tabularx}
+\usepackage{graphicx,setspace}
+\usepackage[justification = centering]{caption}
+\usepackage{fullpage}
+\usepackage[space]{grffile}
+\usepackage[titletoc,toc,title]{appendix}
+\usepackage[round]{natbib}
+\usepackage{multirow}
+\usepackage{color}
+\newcommand\notype[1]{\unskip}
+%\graphicspath{{/Users/susanna/Dropbox/PhD/Research/IndiaOD/Figures/}}
+\usepackage{multicol}
+
+\newcommand\E{\mathbb{E}}
+\newcommand\R{\mathbb{R}}
+\newcommand\half{\frac{1}{2}}
+\newcommand\muhat{\hat{\mu}}
+\newcommand\Siginv{\Sigma^{-1}}
+\newcommand{\betahat}{\hat{\beta}}
+\newcommand{\one}{\mathbf{1}}
+\newcommand{\oneT}{\mathbf{1}^T}
+\newcommand*{\red}{\textcolor{red}}
+
+\title{Measurement Error}
+\author{Susanna Makela}
+
+\onehalfspacing
+
+\begin{document}
+\maketitle
+
+\section*{Why Measurement Error?}
+This project was inspired by the working paper of \cite{gs2015}, in which the authors investigate the effects of household- and community-level open defecation (OD) on child mortality. Using data from the three rounds of the National Family Health Survey (NFHS) in India, the authors define community-level OD as the proportion of households in a primary sampling unit (PSU) practicing OD. The NFHS is a two-stage survey, sampling PSUs in the first stage and households in selected PSUs in the second. PSUs are defined as villages in rural areas and census enumeration blocks in urban areas. In both cases, PSUs consist of approximately 100-200 households, with 15-60 households sampled per PSU. Estimates of community-level OD rates, then, are based on the sampled households and may not be accurate estimates of the true OD rate. As \cite{gs2015} note, this measurement error may affect their estimates of the community-level OD effect.
+
+PSU-level estimates of risk factors and health determinants are particularly subject to measurement error when they are measured for a subset of the population that may not exist in each sampled household. For example, while toilet facility information can be collected for each sampled household, whether an infant is being exclusively breastfed can only be measured for households with women who had a recent live birth. The number of such households may be considerably less than the total number of sampled households, rendering the resulting estimates even less reliable.
+
+Measurement error is well known to affect the coefficient estimates of imprecisely measured covariates. However, it can also affect coefficient estimates for perfectly measured covariates that are correlated with the imprecisely measured one \citep{gustafson_book}. In addition, when a regression includes multiple mismeasured covariates, coefficient estimates are not always attenuated. Depending on the magnitude of the measurement errors and the correlation between the covariates, the estimated coefficients may be attenuated or inflated compared to the truth.
+
+In this project, we first do a simulation study to understand the effects of measurement error in a situation analogous to that in \cite{gs2015}. In particular, we consider a multilevel model with a continuous outcome, a binary individual-level predictor, and two continuous PSU-level predictors, one of which is the PSU-level mean of the individual-level predictor. We are interested in the effect of measurement error in the PSU-level predictor on the coefficients for that predictor and for the individual-level predictor.
+
+\section*{Simulation Study}
+\subsection*{The population and the sample}
+Consider a population consisting of $J$ primary sampling units (PSUs). Each of the $j = 1, \ldots, J$ PSUs consists of $N_j$ individuals in a particular target demographic group, with a total population size of $N = \sum_{j=1}^J N_j$. A survey is conducted that samples $n_I$ PSUs and $n_j$ individuals in each PSU. Let $S_j$ denote the set of all individuals in the target demographic group in PSU $j$ and let $s_j$ denote the set of \textit{sampled} individuals in PSU $j$ so that $|S_j| = N_j$ and $|s_j| = n_j$.
+
+The survey collects information on $n = \sum_{j=1}^{n_I} n_j$ individuals. Specifically, the survey data consist of an individual-level disease status outcome $Y_i$ and a binary individual-level covariate $Z_i$. The binary covariate $Z_i$ is the presence/absence of a risk factor for individual $i$ and is assumed to be drawn from a Bernoulli distribution with parameter $\rho_{j[i]} \in [0,1]$ (the notation $j[i]$ denotes the area $j$ to which individual $i$ belongs):
+\[
+	Z_i | \rho_{j[i]} \overset{ind}{\sim} \textrm{Bern}(\rho_{j[i]}).
+\]
+Thus, $\rho_j$ is the latent prevalence of or propensity for the risk factor $Z$ in PSU $j$. We assume that it has a normal distribution (on the logit scale):
+\[
+	\textrm{logit}(\rho_j) \sim N(\mu, \tau^2).
+\]
+%\red{I feel like I need to say something else about $\rho_j$ here...}
+
+In contrast, the true unobserved prevalence of $Z$ in PSU $j$ is
+%\red{not sure about the word ``true" here -- I tried ``actual" also, but either way I'm worried about causing confusion between the roles and meanings of $\rho_j$ and $p_j$ and the uses of the words ``latent", ``underlying", ``true", ``unobserved", etc.}
+\[
+	p_j = \frac{1}{N_j} \sum_{i \in S_j} Z_i,
+\]
+from which it follows that the true underlying number of individuals in the PSU with the risk factor, $T_j = \sum_{i \in S_j} Z_i$, is distributed as
+\[
+	T_j | \rho_j \sim \mathrm{Bin}(N_j, \rho_j).
+\]
+
+Under this data generating mechanism, people moving in and out of area $j$ will change the unobserved finite population prevalence $p_j$ (since they will cause $N_j$ to change), but they won't affect the superpopulation prevalence/propensity $\rho_j$. This distinction between the latent propensity $\rho_j$ for the risk factor and the underlying prevalence $p_j$ is useful because in reality, we know that it is the $Z_i$'s that determine $p_j$, not the other way around.
+
+%(As a side note, we can imagine that in some contexts, the propensity for having the risk factor depends on the composition of the population in area $j$. For example, if the risk factor $Z_i$ is whether an individual has high blood pressure or not, we would expect $\rho_j$ to be higher in areas with more older people and lower in areas with more younger, active people. In this scenario, the composition of the specific $N_j$ people who make up the population of area $j$ can be thought of as \textit{determining} the prevalence $\rho_j$ of the risk factor.)
+
+
+%\red{I'm not sure what it means to think about $X_j$ as a superpopulation vs a finite population proportion. As I've defined it, it's the proportion of the $N_j$ people in PSU $j$ who have the risk factor (e.g. the proportion of smokers). But if I'm thinking about the PSUs as a random sample from a superpopulation of PSUs, how does that change how I think about $X_j$?}
+
+Because we only sample $n_j < N_j$ individuals in each PSU, we only observe the imperfectly measured prevalence $p^*_j$ instead of the true prevalence $p_j$, where
+\[
+	p^*_j = \frac{1}{n_j} \sum_{i \in s_j} Z_i.
+\]
+The observed number of individuals with the risk factor is $T^*_j = \sum_{i \in s_j} Z_i$. The distribution of $T^*_j$ is hypergeometric with parameters $n_j$, $T_j$, and $N_j$: we have a PSU with $N_j$ individuals, $T_j = \sum_{i \in S_j} Z_i$ of whom have the risk factor of interest, and in a sample of $n_j$ individuals \textit{without replacement}, we want to know the number $T^*_j$ of them with the risk factor.
+
+For now, we assume that the outcome $Y_i$ is continuous and normally distributed. Specifically, we assume that
+\begin{align*}
+	Y_i | \alpha_{j[i]}, Z_i &\sim N(\alpha_{j[i]} + \beta Z_i, \sigma_y^2) \\
+	\alpha_j | p_j, N_j &\sim N(\gamma_0 + \gamma_1 p_j + \gamma_2 \log(N_j), \sigma_{\alpha}^2),
+\end{align*}
+%where $u_j$ is an unobserved covariate such that $\mathbb{E}(u_j) = \log(N_j)$ and $\mathrm{Corr}(u_j, log(N_j)) = 0.75$.
+Note that the (log of the) PSU population sizes $N_j$ are assumed to be predictive of the outcome $Y_i$. Here this is a slight simplification of the scenario where population size is correlated with a variable that is itself predictive of the outcome. In many health applications, this is a realistic assumption: village size may be correlated with health determinants such as access to major roads, quality of local health facilities, or geography (e.g. less malaria-prone highlands or more fertile agricultural areas).
+
+This model assumes that it is the true finite population prevalence $p_j$ rather than $\rho_j$ that drives the variation in PSU-specific intercepts. In other words, the average value of $Y_i$ in PSU $j$ among individuals without the risk factor is $\mathbb{E}[Y_i | Z_i = 0] = \gamma_0 + \gamma_1 p_j + \gamma_2 \log(N_j) = \gamma_0 + \gamma_1 \frac{1}{N_j} \sum_{i \in S_j} Z_i + \gamma_2 \log(N_j)$.
+%\red{omg totally turned around now over this. does it matter?? something about ``contextual" and ``direct" effects as in Gelman (2006)?}
+
+%Is this reasonable? We are assuming that $Z_i$ is determined by $\rho_{j[i]}$. $Y_i$ is determined by $Z_i$ and a PSU effect $\alpha_{j[i]}$. But what should we assume $\alpha_j$ is determined by? To answer this, we need to think about the meaning of $\alpha_j$. It is the average outcome $Y$ in area $j$ when $Z=0$ (ie, the risk factor is not present). So, do we think that this mean is determined by $\rho_j$ or $p_j$? I think it makes more sense to think of it in terms
+
+
+%%%%
+% need to think about how to formulate the disease/measurement/exposure models here
+However, we do not observe $p_j$ and can only use the imperfect surrogate $p^*_j$. In epidemiology, measurement error models are often broken down into three submodels \citep{richardson_gilks}. The first is a disease model that describes the relationship between the outcome or disease status $Y$ and the true risk factor $p$, and possibly other accurately measured risk factors. Next is a measurement model that relates the true risk factor $p$ to the mismeasured surrogate $p^*$, and last is the exposure model that describes the distribution of the true risk factor $p$ in the population.
+
+In these submodels, the risk factor $p$ and the disease status $Y$ are both measured at the individual level. In particular, the measurement error applies to an individual-level risk factor. In our case, however, the individual-level risk factor $Z_i$ is measured accurately, but the PSU-level prevalence $p_j$ is not because we only observe $Z_i$ for $n_j$ out of $N_j$ individuals in each PSU. In our scenario, the disease, measurement, and exposure models are as follows:
+
+\begin{align}
+	\textrm{disease model:} \quad \quad &Y_i | Z_i, \alpha_{j[i]} \sim N(\alpha_{j[i]} + \beta Z_i, \sigma_y^2) \label{disease} \\
+	&\alpha_j | p_j, N_j \sim N(\gamma_0 + \gamma_1 p_j + \gamma_2 \log(N_j), \sigma_{\alpha}^2) \notag\\
+	&Z_i | \rho_{j[i]} \sim \textrm{Bern}(\rho_{j[i]}) \notag\\
+	\textrm{measurement model:}\quad \quad	&T^*_j | n_j, T_j, N_j \sim \textrm{Hypergeom}(n_j, T_j, N_j) \label{measurement} \\
+	& T_j | \rho_j \sim \textrm{Bin}(N_j, \rho_j) \notag\\
+	\textrm{exposure model:} \quad \quad &\textrm{logit}(\rho_j) \sim N(\mu, \tau^2) \label{exposure}
+\end{align}
+
+
+%NOTE to self: could calculate the marginal distribution of $T^*_j$? Then would have dist of $T^*_j$ in terms of $n_j$, $N_j$, and $\rho_j$. Is this useful? Could we somehow use it in the case where we don't know $N_j$? NO obviously not, because the dist is in terms of $N_j$!!s
+
+%
+%These submodels make several assumptions about the relationship between disease status $Y$ and the true and mismeasured risk factor prevalences $p$ and $p^*$.
+%%These submodels arise from the assumptions of conditional independence between disease status and surrogate mismeasured risk factors given unobserved true risk factors.
+%Specifically, we assume that the measurement error is nondifferential \citep{gustafson_book}, meaning that conditional on the true risk factor prevalence $X_{j[i]}$, the surrogate $X^*_{j[i]}$ and the outcome $Y_i$ are independent for all individuals $i$ and corresponding PSUs $j[i]$ \red{ughhhh}. That is, the measurement error itself carries no information about the outcome. We also assume that, conditional on the true risk factor $X_j$, the surrogates $X^*_j$ are independent for all $j = 1, \ldots, J$ PSUs. \red{need to think more carefully about these assumptions as they're given in \cite{richardson_gilks} in this context.} We can then write the joint distribution of $\mathbf{Y} = (Y_1, \ldots, Y_N)$, $\mathbf{X} = (X_1, \ldots, X_J)$, and $\mathbf{Z} = (Z_1, \ldots, Z_N)$ as
+%\[
+%	\prod_j \left[ p(X_j) \prod_i \left( p(Z_i | X_{j[i]}) p(Y_i | Z_i, X_{j[i]}) \right) \right].
+%\]
+%\red{add the $\alpha_j$'s to the last term}
+
+%\red{Of course, this also assumes that, conditional on the $X_j$'s, the $Y_i$'s in different PSUs are independent. This is reasonable, but if we want there to be spatial correlation in $Y_i$ then we'd have to change things. Also, I think I should talk about how exchangeability works into this scenario but not sure I understand it adequately...}
+
+\section*{Some simulations}
+
+\subsection*{Generating finite population data}\label{popdata}
+Set parameters/hyperparameters:
+\begin{center}
+	\begin{tabular}{cc} 
+		{$\!\begin{aligned}
+			J &= 5000 \\
+			\mu &= 0 \\
+			\beta &= 4 \\
+			\tau &= 1 \\
+			\sigma_y &= 1 \\ \end{aligned}$} & {$\!\begin{aligned}
+			(N^{low}, N^{high}) &= (200, 500) \\
+			\gamma_0 &= 1 \\
+			\gamma_1 &= 2 \\
+			\gamma_2 &= 1 \\
+			\sigma_a &= 0.5 \end{aligned}$}
+	\end{tabular}
+\end{center}
+Generate population data:
+\begin{enumerate}
+	\item Draw PSU population sizes $N_j$ from $N_j \sim \mathrm{Unif}(N^{low}, N^{high})$.
+	\item Draw the superpopulation prevalences $\rho_j$ from $\mathrm{logit}(\rho_j) \sim N(\mu, \tau^2)$.
+	\item Set individual-level risk factor to present/absent according to $Z_i | \rho_{j[i]} \sim \mathrm{Bern}(\rho_j)$.
+	\item Calculate finite population prevalence $p_j = 1/N_j \sum_{i=1}^{N_j} Z_i$.
+	%\item Generate $\mathbf{u} = (u_1, \ldots, u_J)$ such that $\mathrm{Corr}(\mathbf{u}, \mathbf{\log(N)}) = 0.75$ ($\mathbf{\log(N)} = (\log(N_1), \ldots, \log(N_J))$) and $\overline{\mathbf{u}} = \overline{\mathbf{\log(N)}}$.
+	\item Draw PSU-specific intercepts from $\alpha_j | p_j \sim N(\gamma_0 + \gamma_1 p_j + \gamma_2 \log(N_j), \sigma_{\alpha}^2)$.
+	\item Draw individual-level outcome from $Y_i | \alpha_{j[i]}, Z_i \sim N(\alpha_{j[i]} + \beta Z_i, \sigma_y^2)$.
+\end{enumerate}
+
+\subsection*{Sampling}\label{sampling}
+We then sample from the population:
+\begin{enumerate}
+	\item Sample $n_I$ out of $J$ PSUs with probability proportional to size (PPS).
+	\item From each sampled PSU, take a simple random sample (SRS) of $n_j$ individuals.
+\end{enumerate}
+We use $n_I \in \{10, 50, 100, 500\}$ and $n_j \in \{2, 20, 200\}$ for all $j$. In this way, the sample is self-weighting. (Of course, in reality we know that surveys like the DHS come with weights that aren't exactly 1 like you'd expect from a self-weighting survey because the weights also account for things like nonresponse. This is an interesting area of further research: given a dataset that comes with survey weights, how should we incorporate those weights into a measurement error context?)
+
+\subsection*{Models}\label{models}
+We fit two types of models to the data as shown in Table \ref{table:models}. Our simulations initially focus on the case where the $N_j$'s are known.
+\begin{table}[h!]
+	\centering
+	\begin{tabular}[t]{l|ll}
+				& $N_j$ unknown & $N_j$ known \\
+		\hline \\
+		Naive model & $Y_i \sim N(\alpha_{j[i]} + \beta Z_i, \sigma_y^2)$ & $Y_i \sim N(\alpha_{j[i]} + \beta Z_i, \sigma_y^2)$ \\[1ex]
+					& $\alpha_j \sim N(\gamma_0 + \gamma_1 p^*_j, \sigma_{\alpha}^2)$ & 
+					$\alpha_j \sim N(\gamma_0 + \gamma_1 p^*_j + \gamma_2 \log(N_j), \sigma_{\alpha}^2)$ \\
+		\\
+		Full model & $Y_i \sim N(\alpha_{j[i]} + \beta Z_i, \sigma_y^2)$ & $Y_i \sim N(\alpha_{j[i]} + \beta Z_i, \sigma_y^2)$ \\ [1ex]
+					& $\alpha_j \sim N(\gamma_0 + \gamma_1 \rho_j, \sigma_{\alpha}^2)$ &
+					$\alpha_j \sim N(\gamma_0 + \gamma_1 \rho_j + \gamma_2 \log(N_j), \sigma_{\alpha}^2)$ \\ [1ex]
+					& $Z_i \sim \mathrm{Bern}(\rho_{j[i]})$ & $Z_i \sim \mathrm{Bern}(\rho_{j[i]})$
+	\end{tabular}
+	\caption{Summary of models.}
+	\label{table:models}
+\end{table}
+
+
+\begin{itemize}
+	\item \textbf{``Naive" model.} This model ignores measurement error and assumes that $p^*_j$ is a good enough approximation for $p_j$.
+	
+		\textbf{$N_j$'s known.}
+			\begin{align*}
+				Y_i | \alpha_{j[i]}, Z_i &\sim N(\alpha_{j[i]} + \beta Z_i, \sigma_y^2) \\
+				\alpha_j | p^*_j &\sim N(\gamma_0 + \gamma_1 p^*_j + \gamma_2 \log(N_j), \sigma_{\alpha}^2) \\
+			\end{align*}
+
+		\textbf{$N_j$'s unknown.}
+			\begin{align*}
+				Y_i | \alpha_{j[i]}, Z_i &\sim N(\alpha_{j[i]} + \beta Z_i, \sigma_y^2) \\
+				\alpha_j | p^*_j &\sim N(\gamma_0 + \gamma_1 p^*_j + \gamma_2 \log(N_j), \sigma_{\alpha}^2) \\
+			\end{align*}
+						
+	\item \textbf{``Full" model.} This model accounts for measurement error. Here we make the simplification of using the superpopulation parameter $\rho_j$ in place of the finite population parameter $p_j$ in the model for $\alpha_j$. This approximation is very good in the context of our simulation. By the Central Limit Theorem, $(p_j - \rho_j) \xrightarrow[n \rightarrow \infty]{d} N(0, \rho_j (1 - \rho_j)/N_j)$. The values of $N_j$ that we are using are 200 or greater, so the normal approximation is reasonable, and the variance of $p_j$ around $\rho_j$ is therefore at most $.5*.5/200=0.00125$. This is equivalent to a standard deviation of $\sqrt{0.00125}=0.035$. Assuming the normal approximation holds, we can then say that $\mathbb{P}(|p_j - \rho_j| < 0.07) = 0.95$ -- that is, the observed $p_j$'s are within $0.07$ of $\rho_j$ with 95\% probability.
+	
+		\textbf{$N_j$'s known.}
+			\begin{align*}
+				Y_i | \alpha_{j[i]}, Z_i &\sim N(\alpha_j + \beta Z_i, \sigma_y^2) \\
+				\alpha_j | \rho_j &\sim N(\gamma_0 + \gamma_1 \rho_j + \gamma_2 \log(N_j), \sigma_{\alpha}^2) \\
+				Z_i | \rho_{j[i]} &\sim \mathrm{Bern}(\rho_{j[i]})
+			\end{align*}	
+			
+		\textbf{$N_j$'s unknown.} 
+			\begin{align*}
+				Y_i | \alpha_{j[i]}, Z_i &\sim N(\alpha_{j[i]}	 + \beta Z_i, \sigma_y^2) \\
+				\alpha_j | \rho_j &\sim N(\gamma_0 + \gamma_1 \rho_j, \sigma_{\alpha}^2) \\
+				Z_i &\sim Bern(\rho_{j[i]})
+			\end{align*}
+\end{itemize}
+
+
+\subsection*{Replication}
+We generate a total of 20 populations using the hyperparameters and parameters specified above. For each population, we generate 100 samples and fit the models to all 100 samples. In this way, we obtain distributions of posterior means for the parameters of interest. These distributions are over 20 populations, so the peculiarlities of any particular population are averaged out.
+
+\subsection*{Summary}
+Our simulation study thus has two goals. First, our interest is in the effects of both $p_j$ and $Z_i$ on individual disease status $Y_i$, so we want to understand the effect of ignoring measurement error on these coefficients ($\gamma_1$ and $\beta$, respectively). Second, we want to understand the performance of the naive and full models in the cases that the $N_j$'s are known and unknown.
+
+
+\bibliography{pooprefs}
+\bibliographystyle{plainnat}
+
+
+\end{document}
