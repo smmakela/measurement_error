@@ -1,0 +1,102 @@
+---
+title: "Observed vs Latent Variables"
+author: "Susanna Makela"
+date: "September 27, 2016"
+output: html_document
+---
+
+Suppose we are interested in the causal effect of a randomly-assigned binary treatment $T_i$ on an observed outcome $y_i$. Denote the pre-treatment value of $y$ for individual $i$ as $y_{i0}$ and the post-treatment value as $y_{i1}$. In the context of a randomized experiment, we might use a regression model to estimate the treatment effect:
+$$
+  \begin{equation}\label{eq:y_mod}
+    y_{i1} = \beta_0 + \beta_1 y_{i0} + \beta_2 T_i + \beta_3 T_i y_{i0} + \epsilon_i,
+  \end{equation}
+$$
+where $\epsilon_i \sim N(0, \sigma_y)$.
+
+In many cases, however, the value of $y_{i}$ that we observe is not the true value, but instead a noisy realization of the latent (true) value $u_i$: $y_i = u_i + \eta_i$, where for now we assume $\eta_i$ is normally distributed with mean 0 and standard deviation $\sigma_{\eta}$. In this case, what we'd really like to model is $u$, not $y$:
+$$
+  \begin{equation}\label{eq:u_mod}
+    u_{i1} = \beta_0 + \beta_1 u_{i0} + \beta_2 T_i + \beta_3 T_i u_{i0} + \epsilon_i,
+  \end{equation}
+$$
+where $\epsilon_i \sim N(0, \sigma_u)$. Let $\theta$ denote the vector of parameters: $\theta = (\beta_0, \beta_1, \beta_2, \beta_3, \sigma_y, \sigma_u)$. In the Bayesian context, it's easy to write out the joint likelihood for the observed data $y$ and the latent data $u$ conditional on $\theta$:
+$$
+  p(y, u | \theta) = p(y | u, \theta) p(u | \theta).
+$$
+We can write down the posterior for $\theta$ conditional on the observed data $y$ by integrating out the latent variables $u$:
+$$
+  \begin{aligned}
+    p(\theta | y) &= \int p(\theta, u | y) du \\
+    &\propto \int p(y | u, \theta) p(u | \theta) p(\theta) du.
+  \end{aligned}
+$$
+
+This model is easy to fit in Stan. Let's simulate some data and see how the parameter estimates for $\beta_2$ and $\beta_3$ differ between models $\eqref{eq:y_mod}$ and $\eqref{eq:u_mod}$ differ.
+
+First, we'll simulate baseline values of $y_{i0}$ from a standard normal distribution and treatment assignments $T_i$ from $Bern(1/2)$:
+```{r}
+library(ggplot2)
+library(shinystan)
+source("src/sim_function.R")
+n <- 1000 # sample size
+
+# Compile stan model
+sim.mod <- stan_model(file = "src/sim_test.stan")
+
+# Do simulation
+n.sims <- 100
+sim.res <- data.frame()
+for (j in 1:n.sims) {
+  res <- sim_function(n)
+  df <- res$df
+  true_coefs <- data.frame(res$true_coefs)
+  
+  # Estimate regression coeffs from observed y's:
+  mod1 <- lm(y_i1 ~ y_i0 + T_i + y_i0:T_i, data = df)
+  coeffs.mod1 <- summary(mod1)$coef
+  a_hat <- coeffs.mod1[1, 1]
+  b_hat <- coeffs.mod1[2, 1]
+  c_hat <- coeffs.mod1[3, 1]
+  d_hat <- coeffs.mod1[4, 1]
+  sd_a_hat <- coeffs.mod1[1, 2]
+  sd_b_hat <- coeffs.mod1[2, 2]
+  sd_c_hat <- coeffs.mod1[3, 2]
+  sd_d_hat <- coeffs.mod1[4, 2]
+
+  # Do stan
+  stan.data <- list(N = n, T_i = df$T_i, y_i0 = df$y_i0, y_i1 = df$y_i1)
+  stan.res <- sampling(sim.mod, data = stan.data) # uses defaults: iter = 2000, chains = 4
+  stan.summary <- summary(stan.res)$summary
+  
+  #round(stan.summary[c("a", "b", "c", "d", "sigma_u", "lp__"), ], digits = 2)
+  #launch_shinystan(stan.res)
+  
+  # Populate results matrix
+  true.vals <- c(true_coefs$a, true_coefs$b, true_coefs$c,
+                 true_coefs$d, true_coefs$sigma_u)
+  lm.est <- c(a_hat, b_hat, c_hat, d_hat, summary(mod1)$sigma)
+  lm.se <- c(sd_a_hat, sd_b_hat, sd_c_hat, sd_d_hat, NA)
+  lm.in.ci <- as.numeric(abs(lm.est - true.vals) < 1.96 * lm.se)
+  stan.rows <- stan.summary[c("a", "b", "c", "d", "sigma_u"), ]
+  stan.est <- stan.rows[, "mean"]
+  stan.se <- stan.rows[, "sd"]
+  stan.in.ci <- as.numeric(true.vals > stan.rows[, "2.5%"]
+                           & true.vals < stan.rows[, "97.5%"])
+  parname <- c("a", "b", "c", "d", "sigma_u")
+  simno <- rep(j, times = length(parname))
+  tmp <- data.frame(true.vals, lm.est, lm.se, lm.in.ci,
+                    stan.est, stan.se, stan.in.ci,
+                    parname, simno)
+  sim.res <- rbind(sim.res, tmp)
+}
+
+sim.res <- tbl_df(sim.res)
+ss <- dplyr::summarise(group_by(sim.res, parname),
+                       lm.bias = mean(lm.est - true.vals),
+                       lm.rmse = sqrt(mean((lm.est - true.vals)^2)),
+                       lm.95covg = mean(lm.in.ci, na.rm = TRUE),
+                       stan.bias = mean(stan.est - true.vals),
+                       stan.rmse = sqrt(mean((stan.est - true.vals)^2)),
+                       stan.95covg = mean(stan.in.ci, na.rm = TRUE))
+
+```
